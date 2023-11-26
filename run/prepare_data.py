@@ -20,6 +20,8 @@ SERIES_SCHEMA = {
 FEATURE_NAMES = [
     "anglez",
     "enmo",
+    "anglez_norm",
+    "enmo_norm",
     "step",
     "hour_sin",
     "hour_cos",
@@ -96,12 +98,21 @@ def main(cfg: PrepareDataConfig):
             )
         else:
             raise ValueError(f"Invalid phase: {cfg.phase}")
+        
+        # anglezをseriesごとにnormalize
+        anglez_mean = series_lf.select(pl.col('anglez').mean().alias('anglez_mean')).collect()['anglez_mean'][0]
+        anglez_std = series_lf.select(pl.col('anglez').std().alias('anglez_std')).collect()['anglez_std'][0]
+        # enmoをseriesごとにnormalize
+        enmo_mean = series_lf.select(pl.col('enmo').mean().alias('enmo_mean')).collect()['enmo_mean'][0]
+        enmo_std = series_lf.select(pl.col('enmo').std().alias('enmo_std')).collect()['enmo_std'][0]
 
         # preprocess
         series_df = (
             series_lf.with_columns(
                 pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
                 deg_to_rad(pl.col("anglez")).alias("anglez_rad"),
+                ((pl.col("anglez").alias("anglez_norm") - anglez_mean) / anglez_std),
+                ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
                 (pl.col("anglez") - ANGLEZ_MEAN) / ANGLEZ_STD,
                 (pl.col("enmo") - ENMO_MEAN) / ENMO_STD,
             )
@@ -110,6 +121,8 @@ def main(cfg: PrepareDataConfig):
                     pl.col("series_id"),
                     pl.col("anglez"),
                     pl.col("enmo"),
+                    pl.col("anglez_norm"),
+                    pl.col("enmo_norm"),
                     pl.col("timestamp"),
                     pl.col("anglez_rad"),
                 ]

@@ -56,8 +56,10 @@ labels:
 
 # feature
 features:
-  - "anglez"
-  - "enmo"
+  # - "anglez"
+  # - "enmo"
+  - "anglez_norm"
+  - "enmo_norm"
   # - "step"
   # - "month_sin"
   # - "month_cos"
