@@ -21,7 +21,7 @@ FEATURE_NAMES = [
     # "anglez",
     # "enmo",
     "anglez_norm",
-    "enmo",
+    "enmo_norm",
     "anglez_diff",
     "step",
     "hour_sin",
@@ -69,7 +69,7 @@ def add_feature(series_df: pl.DataFrame) -> pl.DataFrame:
             # pl.col('anglez_rad').sin().alias('anglez_sin'),
             # pl.col('anglez_rad').cos().alias('anglez_cos'),
             ((pl.col("anglez").alias("anglez_norm") - anglez_mean) / anglez_std),
-            # ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
+            ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
         )
         .with_columns(
             pl.col("anglez_norm").alias("anglez_diff").diff().fill_null(strategy="zero"),)
@@ -116,7 +116,7 @@ def main(cfg: PrepareDataConfig):
                 pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
                 # deg_to_rad(pl.col("anglez")).alias("anglez_rad"),
                 # (pl.col("anglez") - ANGLEZ_MEAN) / ANGLEZ_STD,
-                (pl.col("enmo") - ENMO_MEAN) / ENMO_STD,
+                # (pl.col("enmo") - ENMO_MEAN) / ENMO_STD,
             )
             .select(
                 [
