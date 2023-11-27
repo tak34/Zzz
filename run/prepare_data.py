@@ -18,10 +18,10 @@ SERIES_SCHEMA = {
 
 
 FEATURE_NAMES = [
-    "anglez",
-    "enmo",
+    # "anglez",
+    # "enmo",
     "anglez_norm",
-    "enmo_norm",
+    "enmo",
     "anglez_diff",
     "step",
     "hour_sin",
@@ -30,8 +30,8 @@ FEATURE_NAMES = [
     # "month_cos",
     # "minute_sin",
     # "minute_cos",
-    "anglez_sin",
-    "anglez_cos",
+    # "anglez_sin",
+    # "anglez_cos",
 ]
 
 ANGLEZ_MEAN = -8.810476
@@ -53,16 +53,26 @@ def deg_to_rad(x: pl.Expr) -> pl.Expr:
 
 
 def add_feature(series_df: pl.DataFrame) -> pl.DataFrame:
+    # anglezをseriesごとにnormalize
+    anglez_mean = series_df['anglez'].mean()
+    anglez_std = series_df['anglez'].std()
+    # enmoをseriesごとにnormalize
+    enmo_mean = series_df['enmo'].mean()
+    enmo_std = series_df['enmo'].std()
     series_df = (
         series_df.with_row_count("step")
         .with_columns(
             *to_coord(pl.col("timestamp").dt.hour(), 24, "hour"),
-            *to_coord(pl.col("timestamp").dt.month(), 12, "month"),
-            *to_coord(pl.col("timestamp").dt.minute(), 60, "minute"),
+            # *to_coord(pl.col("timestamp").dt.month(), 12, "month"),
+            # *to_coord(pl.col("timestamp").dt.minute(), 60, "minute"),
             pl.col("step") / pl.count("step"),
-            pl.col('anglez_rad').sin().alias('anglez_sin'),
-            pl.col('anglez_rad').cos().alias('anglez_cos'),
+            # pl.col('anglez_rad').sin().alias('anglez_sin'),
+            # pl.col('anglez_rad').cos().alias('anglez_cos'),
+            ((pl.col("anglez").alias("anglez_norm") - anglez_mean) / anglez_std),
+            # ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
         )
+        .with_columns(
+            pl.col("anglez_norm").alias("anglez_diff").diff().fill_null(strategy="zero"),)
         .select("series_id", *FEATURE_NAMES)
     )
     return series_df
@@ -99,23 +109,13 @@ def main(cfg: PrepareDataConfig):
             )
         else:
             raise ValueError(f"Invalid phase: {cfg.phase}")
-        
-        # anglezをseriesごとにnormalize
-        anglez_mean = series_lf.select(pl.col('anglez').mean().alias('anglez_mean')).collect()['anglez_mean'][0]
-        anglez_std = series_lf.select(pl.col('anglez').std().alias('anglez_std')).collect()['anglez_std'][0]
-        # enmoをseriesごとにnormalize
-        enmo_mean = series_lf.select(pl.col('enmo').mean().alias('enmo_mean')).collect()['enmo_mean'][0]
-        enmo_std = series_lf.select(pl.col('enmo').std().alias('enmo_std')).collect()['enmo_std'][0]
 
         # preprocess
         series_df = (
             series_lf.with_columns(
                 pl.col("timestamp").str.to_datetime("%Y-%m-%dT%H:%M:%S%z"),
-                deg_to_rad(pl.col("anglez")).alias("anglez_rad"),
-                ((pl.col("anglez").alias("anglez_norm") - anglez_mean) / anglez_std),
-                ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
-                pl.col("anglez").alias("anglez_diff").diff().fill_null(strategy="zero"),
-                (pl.col("anglez") - ANGLEZ_MEAN) / ANGLEZ_STD,
+                # deg_to_rad(pl.col("anglez")).alias("anglez_rad"),
+                # (pl.col("anglez") - ANGLEZ_MEAN) / ANGLEZ_STD,
                 (pl.col("enmo") - ENMO_MEAN) / ENMO_STD,
             )
             .select(
@@ -123,11 +123,8 @@ def main(cfg: PrepareDataConfig):
                     pl.col("series_id"),
                     pl.col("anglez"),
                     pl.col("enmo"),
-                    pl.col("anglez_norm"),
-                    pl.col("enmo_norm"),
-                    pl.col("anglez_diff"),
                     pl.col("timestamp"),
-                    pl.col("anglez_rad"),
+                    # pl.col("anglez_rad"),
                 ]
             )
             .collect(streaming=True)
@@ -135,6 +132,7 @@ def main(cfg: PrepareDataConfig):
         )
         n_unique = series_df.get_column("series_id").n_unique()
     with trace("Save features"):
+        # counter = 0
         for series_id, this_series_df in tqdm(series_df.group_by("series_id"), total=n_unique):
             # 特徴量を追加
             this_series_df = add_feature(this_series_df)
@@ -142,6 +140,9 @@ def main(cfg: PrepareDataConfig):
             # 特徴量をそれぞれnpyで保存
             series_dir = processed_dir / series_id  # type: ignore
             save_each_series(this_series_df, FEATURE_NAMES, series_dir)
+            # counter += 1
+            # if counter==5:
+            #     break
 
 
 if __name__ == "__main__":
