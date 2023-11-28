@@ -51,7 +51,9 @@ labels:
 
 # feature
 features:
-  - "anglez"
-  - "enmo"
+  - "anglez_norm"
+  - "enmo_norm"
+  - "rolling_unique_anglez_5min_window"
+  - "rolling_unique_anglez_sum"
   - "hour_sin"
   - "hour_cos"
