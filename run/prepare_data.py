@@ -22,10 +22,12 @@ FEATURE_NAMES = [
     # "enmo",
     "anglez_norm",
     "enmo_norm",
-    "anglez_diff",
+    # "anglez_diff",
     "step",
     "hour_sin",
     "hour_cos",
+    "rolling_unique_anglez_5min_window",
+    "rolling_unique_anglez_sum",
     # "month_sin",
     # "month_cos",
     # "minute_sin",
@@ -59,6 +61,9 @@ def add_feature(series_df: pl.DataFrame) -> pl.DataFrame:
     # enmoをseriesごとにnormalize
     enmo_mean = series_df['enmo'].mean()
     enmo_std = series_df['enmo'].std()
+    # kaggle_fe2で使う
+    return_nunique = lambda s: s.n_unique()
+
     series_df = (
         series_df.with_row_count("step")
         .with_columns(
@@ -68,11 +73,28 @@ def add_feature(series_df: pl.DataFrame) -> pl.DataFrame:
             pl.col("step") / pl.count("step"),
             # pl.col('anglez_rad').sin().alias('anglez_sin'),
             # pl.col('anglez_rad').cos().alias('anglez_cos'),
+            ### normalize
             ((pl.col("anglez").alias("anglez_norm") - anglez_mean) / anglez_std),
             ((pl.col("enmo").alias("enmo_norm") - enmo_mean) / enmo_std),
+            ### kaggle_fe2
+            (pl.col("anglez").cast(pl.Int16)
+            .rolling_map(window_size=60, function=return_nunique, min_periods=1)
+            .fill_null(0)/60)
+            .alias("rolling_unique_anglez_5min_window")    
         )
         .with_columns(
-            pl.col("anglez_norm").alias("anglez_diff").diff().fill_null(strategy="zero"),)
+            # pl.col("anglez_norm").alias("anglez_diff").diff().fill_null(strategy="zero"),
+            ### kaggle_fe2
+            ((pl.col("rolling_unique_anglez_5min_window").shift(12*30) +
+              pl.col("rolling_unique_anglez_5min_window").shift(12*25) +
+              pl.col("rolling_unique_anglez_5min_window").shift(12*20) +
+              pl.col("rolling_unique_anglez_5min_window").shift(12*15) +
+              pl.col("rolling_unique_anglez_5min_window").shift(12*10) +
+              pl.col("rolling_unique_anglez_5min_window").shift(12*5) +
+              pl.col("rolling_unique_anglez_5min_window"))/7)
+            .fill_null(0)
+            .alias("rolling_unique_anglez_sum")
+        )
         .select("series_id", *FEATURE_NAMES)
     )
     return series_df

@@ -57,10 +57,12 @@ labels:
 # feature
 features:
   # - "anglez"
-  - "enmo"
+  # - "enmo"
   - "anglez_norm"
-  # - "enmo_norm"
-  - "anglez_diff"
+  - "enmo_norm"
+  # - "anglez_diff"
+  - "rolling_unique_anglez_5min_window"
+  - "rolling_unique_anglez_sum"
   # - "step"
   # - "month_sin"
   # - "month_cos"
