@@ -19,6 +19,7 @@ defaults:
 
 exp_name: dummy
 phase: test
+split: fold_0
 weight:
   exp_name: ${exp_name}
   run_name: single
