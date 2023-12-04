@@ -121,14 +121,18 @@ def main(cfg: InferenceConfig):
     with trace("inference"):
         keys, preds = inference(cfg.duration, test_dataloader, model, device, use_amp=cfg.use_amp)
 
-    with trace("make submission"):
-        sub_df = make_submission(
-            keys,
-            preds,
-            score_th=cfg.pp.score_th,
-            distance=cfg.pp.distance,
-        )
-    sub_df.write_csv(Path(cfg.dir.sub_dir) / "submission.csv")
+    # 追加
+    np.save(Path(cfg.dir.sub_dir) / "keys.npy", keys)
+    np.save(Path(cfg.dir.sub_dir) / f"preds_{cfg.exp_name}_{cfg.split.name}.npy", preds)
+
+    # with trace("make submission"):
+    #     sub_df = make_submission(
+    #         keys,
+    #         preds,
+    #         score_th=cfg.pp.score_th,
+    #         distance=cfg.pp.distance,
+    #     )
+    # sub_df.write_csv(Path(cfg.dir.sub_dir) / "submission.csv")
 
 
 if __name__ == "__main__":
